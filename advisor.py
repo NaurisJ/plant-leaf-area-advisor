@@ -20,16 +20,21 @@ MIN_BASELINE_PAIRS = 3
 
 
 class Recommendation:
-    # Advisor result - everything the UI needs in one object
+    """Advisor result - everything the UI needs in one object."""
 
     def __init__(self):
         # stress | warning | stable | growth | insufficient_data | no_data
         self.status = ""
         self.latest_pct = 0.0
-        self.rgr = None                  # latest RGR, 1/day
+        self.previous_pct = None
+        self.delta_pct_points = None
+        self.delta_relative_pct = None
+        self.days_between_latest = None
+        self.rgr = None
         self.rgr_baseline_mean = None
         self.rgr_baseline_std = None
         self.z_score = None
+        self.n_measurements = 0
         self.n_prior_pairs = 0
         self.days_since_water = None
         self.confidence = "low" # low | medium | high
@@ -39,6 +44,7 @@ class Recommendation:
         self.action = ""
         self.level = "info" # error | warning | info | success
         self.details = []
+        self.caveats = []
 
 
 def parse_date(s):
@@ -57,7 +63,6 @@ def compute_rgr_pairs(history):
         d1, f1 = history[i]
         d2, f2 = history[i + 1]
 
-        # Skip invalid data
         if f1 <= 0 or f2 <= 0:
             continue
         try:
@@ -74,13 +79,6 @@ def compute_rgr_pairs(history):
         pairs.append((t2, rgr, days))
     return pairs
 
-def confidence_level(n_prior_pairs):
-    """How confident we can be, based on how much data we have."""
-    if n_prior_pairs >= 6:
-        return "high"
-    if n_prior_pairs >= 3:
-        return "medium"
-    return "low"
 
 def compute_baseline(prior_rgrs):
     # Mean and standard deviation from historical RGRs
@@ -197,126 +195,141 @@ def advise(history, watering_events=None):
     """
     Main advisor function.
 
-    history: list of date, area in [0, 1] sorted ascending
-    watering_events: optional list of date, amount_ml sorted ascending
+    history: list of (date, area_fraction) sorted ascending
+    watering_events: optional list of (date, amount_ml) sorted ascending
     """
     rec = Recommendation()
+    rec.n_measurements = len(history)
 
-    # Case 1: no data at all
     if not history:
         rec.status = "no_data"
         rec.title = "Nav datu"
         rec.message = "Šim augam nav pieejami mērījumi."
+        rec.action = "Pievienojiet vismaz divus mērījumus ar derīgiem datumiem."
         rec.level = "info"
+        rec.caveats.append("Padomdevējs izmanto tikai mērījumu laika rindu.")
         return rec
 
-    # Latest measurement
     latest_date, latest_frac = history[-1]
     rec.latest_pct = latest_frac * 100
 
-    # Compute RGR pairs
-    rgr_pairs = compute_rgr_pairs(history)
+    if len(history) >= 2:
+        rec.previous_pct = history[-2][1] * 100
+        days, delta_points, delta_relative = latest_delta(history)
+        rec.days_between_latest = days
+        rec.delta_pct_points = delta_points
+        rec.delta_relative_pct = delta_relative
 
-    # Case 2: not enough data to compute a trend
+    rec.days_since_water = days_since_last_water(latest_date, watering_events)
+
+    rgr_pairs = compute_rgr_pairs(history)
     if not rgr_pairs:
         rec.status = "insufficient_data"
         rec.title = "Nepietiek datu tendences aprēķinam"
         rec.message = (
             "Ir nepieciešami vismaz divi mērījumi ar derīgiem datumiem, "
-            "lai aprēķinātu auga relatīvo augšanas ātrumu (RGR).")
+            "lai aprēķinātu relatīvo augšanas ātrumu.")
+        rec.action = "Veiciet nākamo mērījumu pēc 2-7 dienām līdzīgā skatā."
         rec.level = "info"
+        rec.confidence, rec.confidence_score, rec.caveats = (
+            confidence_from_context(rec.n_measurements, 0, rec.days_since_water))
+        rec.caveats.append(
+            "Rezultāts nav absolūta platība cm², bet projektētās lapotnes "
+            "laukuma relatīvs rādītājs.")
+        add_common_details(rec)
         return rec
 
-    # Split: latest RGR and all prior ones (used for the baseline)
     latest_rgr = rgr_pairs[-1][1]
     prior_rgrs = [r for _, r, _ in rgr_pairs[:-1]]
     n_prior = len(prior_rgrs)
-
-    # Baseline - mean and standard deviation
     baseline_mean, baseline_std = compute_baseline(prior_rgrs)
-
-    # Z-score - how many standard deviations the latest RGR is from the norm
     z = (latest_rgr - baseline_mean) / baseline_std
 
-    # Fill in the basic fields
     rec.rgr = latest_rgr
     rec.rgr_baseline_mean = baseline_mean
     rec.rgr_baseline_std = baseline_std
     rec.z_score = z
     rec.n_prior_pairs = n_prior
-    rec.confidence = confidence_level(n_prior)
-    rec.days_since_water = days_since_last_water(latest_date, watering_events)
+    rec.confidence, rec.confidence_score, rec.caveats = confidence_from_context(
+        rec.n_measurements, n_prior, rec.days_since_water)
 
-    # Was the plant watered recently?
     recently_watered = (
         rec.days_since_water is not None
         and rec.days_since_water <= WATERING_RECENT_DAYS
     )
+    long_without_water = (
+        rec.days_since_water is not None
+        and rec.days_since_water >= WATERING_DRY_DAYS
+    )
 
-    # Detailed info - shown under the main recommendation
-    rec.details.append(f"Pēdējais RGR: {latest_rgr * 100:+.2f}% dienā")
-    rec.details.append(
-        f"Bāzlīnijas vidējais RGR: {baseline_mean * 100:+.2f}% ± "
-        f"{baseline_std * 100:.2f}% dienā (n={n_prior} pāri)")
-    rec.details.append(f"Z-rādītājs: {z:+.2f}σ")
-    rec.details.append(f"Pārliecība: {rec.confidence}")
-    if rec.days_since_water is not None:
-        rec.details.append(
-            f"Pēdējā laistīšana: pirms {rec.days_since_water} dienām")
-    else:
-        rec.details.append("Pēdējā laistīšana: nav reģistrēta")
+    if n_prior < MIN_BASELINE_PAIRS:
+        rec.caveats.append(
+            "Ieteikums ir sākotnējs, jo auga individuālā bāzlīnija vēl nav "
+            "stabila.")
+    rec.caveats.append(
+        "Padomdevējs nevar atšķirt sausumu no apgriešanas, sezonālām "
+        "izmaiņām vai fotografēšanas leņķa maiņas.")
 
-    # Classify the state
     if z <= -SIGMA_STRESS and recently_watered:
-        # Big drop, but watered recently - don't increase the dose right away
         rec.status = "stress"
         rec.level = "warning"
-        rec.title = "Iespējams stress, bet augs nesen laistīts"
+        rec.title = "Spēcīgs kritums pēc nesenas laistīšanas"
         rec.message = (
-            f"Lapotnes laukums būtiski samazinājies "
-            f"({z:+.1f}σ no bāzlīnijas), tomēr augs tika laistīts "
-            f"pirms {rec.days_since_water} dienām. Ieteicams nogaidīt "
-            f"un veikt papildu mērījumu pēc 1-2 dienām, pirms "
-            f"palielināt laistīšanas devu.")
+            "Lapotnes relatīvais pieaugums ir būtiski zemāks nekā parasti, "
+            "bet augs nesen jau ir laistīts.")
+        rec.action = (
+            "Nelaistiet atkārtoti automātiski. Pārbaudiet augsnes mitrumu "
+            "un atkārtojiet mērījumu pēc 1-2 dienām.")
 
-    elif z <= -SIGMA_STRESS:
-        # Big drop and not recently watered - drought stress
+    elif z <= -SIGMA_STRESS and long_without_water:
         rec.status = "stress"
         rec.level = "error"
-        rec.title = "Sausuma stress — steidzami laistīt"
+        rec.title = "Iespējams sausuma stress"
         rec.message = (
-            f"Auga relatīvais augšanas ātrums ir {z:+.1f} standartnoviržu "
-            f"zem šī auga vēsturiskās bāzlīnijas. Tas norāda uz "
-            f"iespējamu sausuma stresu. Ieteicams nekavējoties palielināt "
-            f"laistīšanas biežumu un pārbaudīt augsnes mitrumu.")
+            "Augšanas signāls ir būtiski zemāks par šī auga ierasto "
+            "līmeni, un pēdējā laistīšana bija pirms "
+            f"{rec.days_since_water} dienām.")
+        rec.action = (
+            "Aplaistiet augu vai pārbaudiet augsnes mitrumu, pēc tam "
+            "turpiniet novērošanu ar nākamo mērījumu.")
+
+    elif z <= -SIGMA_STRESS:
+        rec.status = "stress"
+        rec.level = "warning"
+        rec.title = "Būtisks augšanas kritums"
+        rec.message = (
+            "Relatīvais augšanas ātrums ir būtiski zemāks nekā šim augam "
+            "ierasts.")
+        rec.action = (
+            "Pārbaudiet augsnes mitrumu un auga vizuālo stāvokli. Ja "
+            "augsne ir sausa, aplaistiet; ja nav, atkārtojiet mērījumu.")
 
     elif z <= -SIGMA_WARNING:
-        # Slightly below the norm - warning
         rec.status = "warning"
         rec.level = "warning"
-        rec.title = "Lēna augšana — sekojiet līdzi"
+        rec.title = "Augšana palēninās"
         rec.message = (
-            f"Augšanas ātrums ir nedaudz zem auga normas "
-            f"({z:+.1f}σ). Vēl nav kritiski, bet ieteicams veikt "
-            f"papildu mērījumu tuvāko dienu laikā un pārbaudīt "
-            f"augsnes mitrumu.")
+            "Augšanas signāls ir zem ierastā līmeņa, bet kritums vēl nav "
+            "pietiekams stingrai trauksmei.")
+        rec.action = (
+            "Sekojiet līdzi tuvākajās dienās un pārbaudiet laistīšanas "
+            "žurnālu vai augsnes mitrumu.")
 
     elif z >= SIGMA_GROWTH:
-        # Above the norm - the plant is growing actively
         rec.status = "growth"
         rec.level = "success"
         rec.title = "Aktīva augšana"
         rec.message = (
-            f"Augs aug aktīvi ({z:+.1f}σ virs bāzlīnijas). "
-            f"Saglabājiet pašreizējo laistīšanas režīmu.")
+            "Augšanas signāls ir virs šī auga ierastā līmeņa.")
+        rec.action = "Saglabājiet pašreizējo kopšanas un laistīšanas režīmu."
 
     else:
-        # Within the norm - stable
         rec.status = "stable"
         rec.level = "success"
         rec.title = "Stabils stāvoklis"
         rec.message = (
-            f"Auga augšanas ātrums atbilst tā vēsturiskajai normai "
-            f"({z:+.1f}σ). Saglabājiet pašreizējo laistīšanas režīmu.")
+            "Augšanas signāls ir tuvu auga vēsturiskajai normai.")
+        rec.action = "Saglabājiet pašreizējo režīmu un turpiniet mērījumus."
 
+    add_common_details(rec)
     return rec

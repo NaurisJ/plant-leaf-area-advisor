@@ -16,7 +16,7 @@ from measure_leaf_area import (
 
 st.title("Jauns mērījums")
 st.caption("Modelis ir apmācīts uz Salix integra 'Hakuro Nishiki'. "
-           "Citām sugām rezultāti var nebūt precīzi.")
+           "Citām sugām rezultāti nav.")
 
 uploaded = st.file_uploader(
     "Attēls (.jpg / .png)", type=["jpg", "jpeg", "png"])

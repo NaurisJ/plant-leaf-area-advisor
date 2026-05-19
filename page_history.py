@@ -60,19 +60,19 @@ for _, row in sub.iterrows():
 watering = watering_for(plant)
 rec = advise(history, watering_events=watering)
 
-# st.subheader("Ieteikums")
-# message = f"**{rec.title}**\n\n{rec.message}"
-# if rec.action:
-#     message += f"\n\n**Darbība:** {rec.action}"
+st.subheader("Ieteikums")
+message = f"**{rec.title}**\n\n{rec.message}"
+if rec.action:
+    message += f"\n\n**Darbība:** {rec.action}"
 
-# if rec.level == "error":
-#     st.error(message)
-# elif rec.level == "warning":
-#     st.warning(message)
-# elif rec.level == "success":
-#     st.success(message)
-# else:
-#     st.info(message)
+if rec.level == "error":
+    st.error(message)
+elif rec.level == "warning":
+    st.warning(message)
+elif rec.level == "success":
+    st.success(message)
+else:
+    st.info(message)
 
 c1, c2, c3 = st.columns(3)
 c1.metric("Pēdējais mērījums", f"{rec.latest_pct:.2f}%")

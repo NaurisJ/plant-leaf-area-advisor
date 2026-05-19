@@ -138,4 +138,47 @@ if plants:
         st.warning(f"Dzēsts: {current['plant_id']}")
         st.rerun()
 
+    st.subheader("Dzēst atsevišķu mērījumu")
+    plant_measurements = df[df["plant_id"] == cur["plant_id"]].copy()
+    plant_measurements = plant_measurements.sort_values(
+        "date", ascending=False)
+
+    if plant_measurements.empty:
+        st.info("Šim augam nav mērījumu.")
+    else:
+        measurement_ids = []
+        measurement_labels = {}
+
+        for _, row in plant_measurements.iterrows():
+            mid = int(row["id"])
+
+            if pd.notna(row["date"]):
+                date_str = row["date"].strftime("%Y-%m-%d")
+            else:
+                date_str = "bez datuma"
+
+            view_str = row["view"] or "unknown"
+            area_str = f"{float(row['leaf_area_pct']):.2f}%"
+            filename = row["filename"]
+
+            measurement_ids.append(mid)
+            measurement_labels[mid] = (
+                f"{date_str} / {view_str} / {area_str} / {filename}")
+
+        def show_measurement(mid):
+            return measurement_labels[mid]
+
+        chosen_measurement = st.selectbox(
+            "Izvēlieties mērījumu",
+            measurement_ids,
+            format_func=show_measurement)
+
+        if st.button("Dzēst šo mērījumu"):
+            conn.execute(
+                "DELETE FROM measurements WHERE id=?",
+                (int(chosen_measurement),))
+            conn.commit()
+            st.warning("Mērījums dzēsts.")
+            st.rerun()
+
 conn.close()

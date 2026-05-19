@@ -49,6 +49,21 @@ with st.spinner("Segmentē..."):
 leaf_px = int(np.count_nonzero(plant_mask))
 leaf_frac = leaf_px / max(total_px, 1)
 leaf_pct = leaf_frac * 100
+
+ys, xs = np.where(plant_mask == 255)
+
+plant_width_px = None
+plant_height_px = None
+
+if len(xs) > 0 and len(ys) > 0:
+    left = xs.min()
+    right = xs.max()
+
+    top = ys.min()
+    bottom = ys.max()
+
+    plant_width_px = right - left
+    plant_height_px = bottom - top
 canopy_area_cm2 = None
 calibration_object = None
 calibration_cm = None
@@ -124,6 +139,12 @@ if use_calibration:
 
         cm_per_px = calibration_cm / calibration_px
         canopy_area_cm2 = leaf_px * cm_per_px * cm_per_px
+
+        plant_width_cm = plant_width_px * cm_per_px
+        plant_height_cm = plant_height_px * cm_per_px
+
+        st.write(f"Platums: {plant_width_cm:.1f} cm")
+        st.write(f"Augstums: {plant_height_cm:.1f} cm")
 
         st.success(
             f"References garums: {calibration_px:.1f} px. "

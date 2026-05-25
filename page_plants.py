@@ -139,7 +139,7 @@ if plants:
         st.rerun()
 
     st.subheader("Dzēst atsevišķu mērījumu")
-    plant_measurements = df[df["plant_id"] == cur["plant_id"]].copy()
+    plant_measurements = df[df["plant_id"] == current["plant_id"]].copy()
     plant_measurements = plant_measurements.sort_values(
         "date", ascending=False)
 

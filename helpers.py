@@ -1,6 +1,5 @@
 
 # Shared functions for all pages.
-import sqlite3
 from pathlib import Path
 
 import pandas as pd
@@ -30,7 +29,7 @@ def open_conn():
 
 def load_measurements():
     # Get all measurements as a pandas DataFrame
-    conn = sqlite3.connect(DB_PATH)
+    conn = init_db(DB_PATH)
     df = pd.read_sql(
         "SELECT * FROM measurements ORDER BY plant_id, date", conn)
     conn.close()
@@ -46,7 +45,7 @@ def load_measurements():
 
 def load_watering():
     # Get all watering events as a pandas DataFrame
-    conn = sqlite3.connect(DB_PATH)
+    conn = init_db(DB_PATH)
     df = pd.read_sql(
         "SELECT * FROM watering_events ORDER BY date DESC", conn)
     conn.close()
@@ -74,7 +73,7 @@ def get_plant_ids():
 
 def watering_for(plant_id):
     # Get watering events for one plant as (date, ml) pairs
-    conn = sqlite3.connect(DB_PATH)
+    conn = init_db(DB_PATH)
     rows = conn.execute(
         "SELECT date, COALESCE(amount_ml, 0) FROM watering_events "
         "WHERE plant_id = ? ORDER BY date", (plant_id,)).fetchall()

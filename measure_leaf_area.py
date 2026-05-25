@@ -204,6 +204,10 @@ def init_db(db_path):
         "detection_method TEXT, "
         "image_width INTEGER, "
         "image_height INTEGER, "
+        "canopy_area_cm2 REAL, "
+        "calibration_object TEXT, "
+        "calibration_cm REAL, "
+        "calibration_px REAL, "
         "notes TEXT, "
         "processed_at TEXT DEFAULT (datetime('now'))"
         ")"
@@ -329,9 +333,10 @@ def save_measurement(conn, measurement):
     conn.execute("DELETE FROM measurements WHERE filename = ?",(filename,))
 
     conn.execute(" INSERT INTO measurements (filename, plant_id, date, view, leaf_area_fraction, "
-           "leaf_area_px, image_area_px, detection_method, "
-           " image_width, image_height, notes) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
+            "leaf_area_px, image_area_px, detection_method, "
+            " image_width, image_height, canopy_area_cm2, "
+            "calibration_object, calibration_cm, calibration_px, notes) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
     , (
         measurement["filename"],
         measurement["plant_id"],
@@ -343,6 +348,10 @@ def save_measurement(conn, measurement):
         measurement["detection_method"],
         measurement["image_width"],
         measurement["image_height"],
+        measurement.get("canopy_area_cm2"),
+        measurement.get("calibration_object"),
+        measurement.get("calibration_cm"),
+        measurement.get("calibration_px"),
         measurement.get("notes"),
     ))
 

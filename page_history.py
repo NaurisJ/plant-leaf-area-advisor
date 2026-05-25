@@ -74,6 +74,15 @@ elif rec.level == "success":
 else:
     st.info(message)
 
+calibrated = sub.dropna(subset=["canopy_area_cm2"])
+if not calibrated.empty:
+    st.subheader("Kalibrētais lapotnes laukums")
+    cm2_chart = calibrated.set_index("date")[["canopy_area_cm2"]]
+    cm2_chart.columns = [f"{plant} ({view})"]
+    st.line_chart(cm2_chart, y_label="cm²", x_label="Datums")
+
+
+
 c1, c2, c3 = st.columns(3)
 c1.metric("Pēdējais mērījums", f"{rec.latest_pct:.2f}%")
 if rec.days_between_latest is not None:
@@ -96,6 +105,22 @@ else:
     c5.metric("Bāzes RGR", "nav datu")
 c6.metric("Pārliecība", f"{rec.confidence.upper()} ({rec.confidence_score}/5)")
 
+if not calibrated.empty:
+    latest_calibrated = calibrated.iloc[-1]
+
+    def optional_metric(value, suffix):
+        if value is None or value != value:
+            return "nav datu"
+        return f"{float(value):.1f} {suffix}"
+
+    c7, c8 = st.columns(2)
+    c7.metric(
+        "Kalibrēts laukums",
+        f"{float(latest_calibrated['canopy_area_cm2']):.1f} cm²")
+    c8.metric(
+        "References garums",
+        optional_metric(latest_calibrated["calibration_cm"], "cm"))
+
 with st.expander("Ko nozīmē pārliecība?"):
     st.write(
         "Pārliecība nav segmentācijas modeļa precizitāte. Tā rāda, cik "
@@ -108,6 +133,20 @@ with st.expander("Īss aprēķina pamatojums", expanded=True):
         st.text(line)
 
 st.subheader("Mērījumi")
-table = sub[["date", "filename", "leaf_area_pct", "notes"]].copy()
-table.columns = ["Datums", "Fails", "Lapotne %", "Piezīmes"]
+table = sub[[
+    "date",
+    "filename",
+    "leaf_area_pct",
+    "canopy_area_cm2",
+    "calibration_cm",
+    "notes",
+]].copy()
+table.columns = [
+    "Datums",
+    "Fails",
+    "Lapotne %",
+    "Lapotne cm²",
+    "Ref. cm",
+    "Piezīmes",
+]
 st.dataframe(table, use_container_width=True, hide_index=True)

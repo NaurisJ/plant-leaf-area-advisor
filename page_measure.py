@@ -95,9 +95,13 @@ st.caption(
 use_calibration = st.checkbox("Aprēķināt aptuveno laukumu cm²")
 
 if use_calibration:
-    calibration_object = "Pielāgots references garums"
-    calibration_cm = st.number_input(
+    selected_calibration_cm = st.number_input(
         "References garums (cm)", min_value=0.1, value=15.0, step=0.1)
+
+    if streamlit_image_coordinates is None:
+        st.error(
+            "Kalibrācijai nepieciešama streamlit-image-coordinates pakotne.")
+        st.stop()
 
     if "calibration_points" not in st.session_state:
         st.session_state.calibration_points = []
@@ -137,6 +141,12 @@ if use_calibration:
         scale_to_original = w / display_width
         calibration_px = calibration_px_small * scale_to_original
 
+        if calibration_px <= 0:
+            st.warning("References punktiem jābūt atšķirīgās vietās.")
+            st.stop()
+
+        calibration_object = "Pielāgots references garums"
+        calibration_cm = selected_calibration_cm
         cm_per_px = calibration_cm / calibration_px
         canopy_area_cm2 = leaf_px * cm_per_px * cm_per_px
 

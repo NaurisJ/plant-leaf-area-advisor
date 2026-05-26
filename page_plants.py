@@ -43,7 +43,17 @@ if plants:
             "Mērījumi": measurement_count,
             "Pēdējais": last_date_text,
         })
-    st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
+    plant_table = pd.DataFrame(rows)
+    st.dataframe(plant_table, use_container_width=True, hide_index=True)
+
+    csv_text = "sep=;\n" + plant_table.to_csv(index=False, sep=";")
+    csv_data = csv_text.encode("utf-8-sig")
+
+    st.download_button(
+        "Lejupielādēt CSV",
+        data=csv_data,
+        file_name="augi.csv",
+        mime="text/csv")
 else:
     st.info("Nav reģistrētu augu.")
 

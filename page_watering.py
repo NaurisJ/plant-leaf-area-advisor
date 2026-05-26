@@ -1,7 +1,9 @@
 # Watering - watering journal
 
 from datetime import date
+from io import BytesIO
 
+import matplotlib.pyplot as plt
 import streamlit as st
 
 from helpers import get_plant_ids, load_watering, open_conn
@@ -47,6 +49,39 @@ table = df[["plant_id", "date", "amount_ml", "notes"]].copy()
 table["date"] = table["date"].dt.strftime("%Y-%m-%d")
 table.columns = ["Augs", "Datums", "Daudzums (ml)", "Piezīmes"]
 st.dataframe(table, use_container_width=True, hide_index=True)
+
+csv_text = "sep=;\n" + table.to_csv(index=False, sep=";")
+csv_data = csv_text.encode("utf-8-sig")
+
+chart_df = df[["date", "amount_ml"]].copy()
+chart_df["amount_ml"] = chart_df["amount_ml"].fillna(0)
+chart_df = chart_df.groupby("date")["amount_ml"].sum().reset_index()
+chart_df = chart_df.sort_values("date")
+
+chart_image = BytesIO()
+fig, ax = plt.subplots(figsize=(8, 4))
+ax.bar(chart_df["date"], chart_df["amount_ml"])
+ax.set_title("Laistīšanas daudzums")
+ax.set_xlabel("Datums")
+ax.set_ylabel("Daudzums (ml)")
+ax.grid(True, axis="y")
+fig.autofmt_xdate()
+fig.tight_layout()
+fig.savefig(chart_image, format="png", dpi=160)
+plt.close(fig)
+chart_image.seek(0)
+
+c1, c2 = st.columns(2)
+c1.download_button(
+    "Lejupielādēt CSV",
+    data=csv_data,
+    file_name="laistisana.csv",
+    mime="text/csv")
+c2.download_button(
+    "Lejupielādēt diagrammu",
+    data=chart_image.getvalue(),
+    file_name="laistisana_diagramma.png",
+    mime="image/png")
 
 # Delete by ID
 st.subheader("Dzēst ierakstu")

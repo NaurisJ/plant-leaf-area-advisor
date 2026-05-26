@@ -64,7 +64,11 @@ else:
     st.success("Visi augi šobrīd ir stabilā stāvoklī.")
 
 st.subheader("Lapotnes laukums laika gaitā")
-top_df = df[(df["view"] == "top") & (df["plant_id"] != "Unknown")]
+top_df = df[
+    (df["view"] == "top")
+    & df["plant_id"].notna()
+    & (df["plant_id"] != "Unknown")
+]
 top_df = top_df.dropna(subset=["date"])
 
 if top_df.empty:

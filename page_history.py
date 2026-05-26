@@ -15,9 +15,9 @@ if df.empty:
     st.stop()
 
 plants = []
-for p in df["plant_id"].unique():
+for p in df["plant_id"].dropna().unique():
     if p != "Unknown":
-        plants.append(p)
+        plants.append(str(p))
 plants.sort()
 
 if not plants:

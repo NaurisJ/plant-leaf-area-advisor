@@ -188,8 +188,29 @@ def measure_image(model, img_path, debug=False):
 # Database
 
 def init_db(db_path):
-    # open the database and create all tables if they don't exist yet 
+    # open the database and create all tables if they don't exist yet
     conn = sqlite3.connect(db_path)
+    conn.execute("PRAGMA foreign_keys = ON")
+
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS species ("
+        "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+        "latin_name TEXT NOT NULL UNIQUE, "
+        "common_name TEXT"
+        ")"
+    )
+
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS plants ("
+        "plant_id TEXT PRIMARY KEY, "
+        "display_name TEXT, "
+        "species TEXT, "
+        "notes TEXT, "
+        "created_at TEXT DEFAULT (datetime('now')), "
+        "FOREIGN KEY (species) REFERENCES species(latin_name) "
+        "ON UPDATE CASCADE ON DELETE SET NULL"
+        ")"
+    )
 
     conn.execute(
         "CREATE TABLE IF NOT EXISTS measurements ("
@@ -209,7 +230,9 @@ def init_db(db_path):
         "calibration_cm REAL, "
         "calibration_px REAL, "
         "notes TEXT, "
-        "processed_at TEXT DEFAULT (datetime('now'))"
+        "processed_at TEXT DEFAULT (datetime('now')), "
+        "FOREIGN KEY (plant_id) REFERENCES plants(plant_id) "
+        "ON UPDATE CASCADE ON DELETE CASCADE"
         ")"
     )
 
@@ -220,26 +243,11 @@ def init_db(db_path):
         "date TEXT NOT NULL, "
         "amount_ml REAL, "
         "notes TEXT, "
-        "logged_at TEXT DEFAULT (datetime('now'))"
+        "logged_at TEXT DEFAULT (datetime('now')), "
+        "FOREIGN KEY (plant_id) REFERENCES plants(plant_id) "
+        "ON UPDATE CASCADE ON DELETE CASCADE"
         ")"
         )
-    conn.execute(
-        "CREATE TABLE IF NOT EXISTS plants ("
-        "plant_id TEXT PRIMARY KEY,"
-        "display_name TEXT, "
-        "species TEXT, "
-        "notes TEXT, "
-        "created_at   TEXT DEFAULT (datetime('now'))"
-        ")"
-        )
-
-    conn.execute(
-        "CREATE TABLE IF NOT EXISTS species ("
-        "id INTEGER PRIMARY KEY AUTOINCREMENT, "
-        "latin_name TEXT NOT NULL UNIQUE, "
-        "common_name TEXT"
-        ")"
-    )
 
     # Insert into the species table with the trained species if its empty
     n = conn.execute("SELECT COUNT(*) FROM species").fetchone()[0]
@@ -327,6 +335,14 @@ def list_plants(conn):
 def save_measurement(conn, measurement):
     "Save a measurement, replace any existing row with the same filename"
     filename = measurement["filename"]
+    plant_id = measurement.get("plant_id")
+
+    if plant_id == "Unknown":
+        plant_id = None
+        measurement["plant_id"] = None
+
+    if plant_id is not None:
+        ensure_plant(conn, plant_id)
 
     # Remove the old result for this filename.
     # This stops the same image from appearing twice if the script is rerun.
@@ -354,11 +370,6 @@ def save_measurement(conn, measurement):
         measurement.get("calibration_px"),
         measurement.get("notes"),
     ))
-
-    plant_id = measurement.get("plant_id")
-
-    if plant_id is not None and plant_id != "Unknown":
-        ensure_plant(conn, plant_id)
 
     conn.commit()
 

@@ -1,4 +1,7 @@
 # History page - canopy trend and watering advisor
+from io import BytesIO
+
+import matplotlib.pyplot as plt
 import streamlit as st
 
 from advisor import advise
@@ -150,3 +153,34 @@ table.columns = [
     "Piezīmes",
 ]
 st.dataframe(table, use_container_width=True, hide_index=True)
+
+csv_text = "sep=;\n" + table.to_csv(index=False, sep=";")
+csv_data = csv_text.encode("utf-8-sig")
+
+chart_image = BytesIO()
+fig, ax = plt.subplots(figsize=(8, 4))
+ax.plot(sub["date"], sub["leaf_area_pct"], marker="o")
+ax.set_title(f"{plant} ({view})")
+ax.set_xlabel("Datums")
+ax.set_ylabel("Lapotne (%)")
+ax.grid(True)
+fig.autofmt_xdate()
+fig.tight_layout()
+fig.savefig(chart_image, format="png", dpi=160)
+plt.close(fig)
+chart_image.seek(0)
+
+csv_file_name = f"merijumi_{plant}_{view}.csv"
+chart_file_name = f"diagramma_{plant}_{view}.png"
+
+c1, c2 = st.columns(2)
+c1.download_button(
+    "Lejupielādēt CSV",
+    data=csv_data,
+    file_name=csv_file_name,
+    mime="text/csv")
+c2.download_button(
+    "Lejupielādēt diagrammu",
+    data=chart_image.getvalue(),
+    file_name=chart_file_name,
+    mime="image/png")

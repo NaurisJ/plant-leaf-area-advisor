@@ -21,6 +21,8 @@ from measure_leaf_area import (
     save_measurement,
 )
 
+NEW_PLANT_OPTION = "+ Jauns augs..."
+
 st.title("Jauns mērījums")
 st.caption("Modelis ir apmācīts uz Salix integra 'Hakuro Nishiki'. "
            "Citām sugām rezultāti nav.")
@@ -50,7 +52,7 @@ leaf_px = int(np.count_nonzero(plant_mask))
 leaf_frac = leaf_px / max(total_px, 1)
 leaf_pct = leaf_frac * 100
 
-ys, xs = np.where(plant_mask == 255)
+ys, xs = np.nonzero(plant_mask == 255)
 
 plant_width_px = None
 plant_height_px = None
@@ -168,7 +170,7 @@ plants = get_plant_ids()
 st.subheader("Metainformācija")
 
 # Dropdown of added plants and choice of adding a new one
-plant_choices = plants + ["+ Jauns augs..."]
+plant_choices = plants + [NEW_PLANT_OPTION]
 
 # Default - if file name contains a name in use, choose that
 if parsed["plant_id"] in plants:
@@ -181,7 +183,7 @@ plant_choice = st.selectbox("Augs", plant_choices, index=selected_plant_index)
 
 # IF user chooses "+ Jauns augs...", show a new field
 new_plant_id = ""
-if plant_choice == "+ Jauns augs...":
+if plant_choice == NEW_PLANT_OPTION:
     if parsed["plant_id"] != "Unknown":
         default_new = parsed["plant_id"]
     else:
@@ -214,7 +216,7 @@ with st.form("save_form"):
 
 if submitted:
     # Detect which plant - new or existing
-    if plant_choice == "+ Jauns augs...":
+    if plant_choice == NEW_PLANT_OPTION:
         final_plant = new_plant_id.strip()
     else:
         final_plant = plant_choice

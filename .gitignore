@@ -22,3 +22,5 @@ desktop.ini
 # Temp
 *.tmp
 ~$*
+leaf_area_before_fk_migration.db
+.scannerwork/

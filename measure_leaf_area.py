@@ -95,9 +95,8 @@ def run_inference(model, img_bgr):
         return plant_mask, "none", 0.0
 
     # Save the highest confidence score if there is one
-    if r.boxes is not None:
-        if len(r.boxes.conf) > 0:
-            max_conf = float(r.boxes.conf.max())
+    if r.boxes is not None and len(r.boxes.conf) > 0:
+        max_conf = float(r.boxes.conf.max())
 
     # YOLO can return several masks.
     # This combines all detected masks into one final plant mask.
@@ -116,7 +115,7 @@ def run_inference(model, img_bgr):
     return plant_mask, method, max_conf
 
 
-def render_overlay(img_bgr, plant_mask, label=""):
+def render_overlay(img_bgr, plant_mask):
     # return the image with the plant mask drawn on top
     vis = img_bgr.copy()
 
@@ -171,10 +170,7 @@ def measure_image(model, img_path, debug=False):
     if debug:
         os.makedirs(DEBUG_DIR, exist_ok=True)
 
-        leaf_percent = leaf_area_fraction * 100
-        label = meta["plant_id"] + "  leaf area: " + format(leaf_percent, ".1f") + "%"
-
-        debug_image = render_overlay(img_bgr, plant_mask, label)
+        debug_image = render_overlay(img_bgr, plant_mask)
 
         image_stem = Path(img_path).stem
         debug_filename = image_stem + "_debug.jpg"

@@ -8,6 +8,8 @@ import streamlit as st
 
 from helpers import get_plant_ids, load_watering, open_conn
 
+AMOUNT_LABEL = "Daudzums (ml)"
+
 st.title("Laistīšanas žurnāls")
 st.caption("Reģistrējiet laistīšanas notikumus. Padomdevējs tos ņem vērā, "
            "novērtējot auga stāvokli.")
@@ -22,7 +24,7 @@ with st.form("water_log", clear_on_submit=True):
     c1, c2, c3 = st.columns(3)
     plant = c1.selectbox("Augs", plants)
     wdate = c2.date_input("Datums", value=date.today(), max_value=date.today())
-    amount = c3.number_input("Daudzums (ml)", min_value=0, value=200, step=50)
+    amount = c3.number_input(AMOUNT_LABEL, min_value=0, value=200, step=50)
     notes = st.text_input("Piezīmes", placeholder="neobligāti")
 
     if st.form_submit_button("Reģistrēt", type="primary"):
@@ -47,7 +49,7 @@ if df.empty:
 # Table
 table = df[["plant_id", "date", "amount_ml", "notes"]].copy()
 table["date"] = table["date"].dt.strftime("%Y-%m-%d")
-table.columns = ["Augs", "Datums", "Daudzums (ml)", "Piezīmes"]
+table.columns = ["Augs", "Datums", AMOUNT_LABEL, "Piezīmes"]
 st.dataframe(table, use_container_width=True, hide_index=True)
 
 csv_text = "sep=;\n" + table.to_csv(index=False, sep=";")
@@ -63,7 +65,7 @@ fig, ax = plt.subplots(figsize=(8, 4))
 ax.bar(chart_df["date"], chart_df["amount_ml"])
 ax.set_title("Laistīšanas daudzums")
 ax.set_xlabel("Datums")
-ax.set_ylabel("Daudzums (ml)")
+ax.set_ylabel(AMOUNT_LABEL)
 ax.grid(True, axis="y")
 fig.autofmt_xdate()
 fig.tight_layout()

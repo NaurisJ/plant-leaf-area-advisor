@@ -2,10 +2,13 @@
 from io import BytesIO
 
 import matplotlib.pyplot as plt
+import pandas as pd
 import streamlit as st
 
 from advisor import advise
 from helpers import load_measurements, watering_for
+
+NO_DATA = "nav datu"
 
 st.title("Vēsture un padomdevējs")
 
@@ -91,29 +94,29 @@ c1.metric("Pēdējais mērījums", f"{rec.latest_pct:.2f}%")
 if rec.days_between_latest is not None:
     c2.metric("Dienas starp mērījumiem", f"{rec.days_between_latest}")
 else:
-    c2.metric("Dienas starp mērījumiem", "nav datu")
+    c2.metric("Dienas starp mērījumiem", NO_DATA)
 if rec.days_since_water is not None:
     c3.metric("Kopš laistīšanas", f"{rec.days_since_water} d")
 else:
-    c3.metric("Kopš laistīšanas", "nav datu")
+    c3.metric("Kopš laistīšanas", NO_DATA)
 
 c4, c5, c6 = st.columns(3)
 if rec.rgr is not None:
     c4.metric("Pēdējais RGR", f"{rec.rgr * 100:+.2f}%/d")
 else:
-    c4.metric("Pēdējais RGR", "nav datu")
+    c4.metric("Pēdējais RGR", NO_DATA)
 if rec.rgr_baseline_mean is not None:
     c5.metric("Bāzes RGR", f"{rec.rgr_baseline_mean * 100:+.2f}%/d")
 else:
-    c5.metric("Bāzes RGR", "nav datu")
+    c5.metric("Bāzes RGR", NO_DATA)
 c6.metric("Pārliecība", f"{rec.confidence.upper()} ({rec.confidence_score}/5)")
 
 if not calibrated.empty:
     latest_calibrated = calibrated.iloc[-1]
 
     def optional_metric(value, suffix):
-        if value is None or value != value:
-            return "nav datu"
+        if value is None or pd.isna(value):
+            return NO_DATA
         return f"{float(value):.1f} {suffix}"
 
     c7, c8 = st.columns(2)

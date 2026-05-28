@@ -11,6 +11,9 @@ from helpers import load_measurements, watering_for
 NO_DATA = "nav datu"
 
 st.title("Vēsture un padomdevējs")
+st.caption(
+    "Apskatiet izvēlētā auga mērījumu dinamiku, padomdevēja ieteikumu "
+    "un eksportējiet datus tālākai izmantošanai.")
 
 df = load_measurements()
 if df.empty:
@@ -134,10 +137,6 @@ with st.expander("Ko nozīmē pārliecība?"):
         "pāru skaits bāzlīnijai un vai ir reģistrēta laistīšanas vēsture."
     )
 
-with st.expander("Īss aprēķina pamatojums", expanded=True):
-    for line in rec.details:
-        st.text(line)
-
 st.subheader("Mērījumi")
 table = sub[[
     "date",
@@ -157,6 +156,7 @@ table.columns = [
 ]
 st.dataframe(table, use_container_width=True, hide_index=True)
 
+st.subheader("Eksports")
 csv_text = "sep=;\n" + table.to_csv(index=False, sep=";")
 csv_data = csv_text.encode("utf-8-sig")
 

@@ -46,6 +46,19 @@ if df.empty:
     st.info("Nav reģistrētu laistīšanas notikumu.")
     st.stop()
 
+total_events = len(df)
+total_amount = df["amount_ml"].fillna(0).sum()
+last_date = df["date"].dropna().max()
+if last_date is not None:
+    last_date_text = last_date.strftime("%Y-%m-%d")
+else:
+    last_date_text = "nav datu"
+
+c1, c2, c3 = st.columns(3)
+c1.metric("Ieraksti", total_events)
+c2.metric("Kopējais daudzums", f"{total_amount:.0f} ml")
+c3.metric("Pēdējā laistīšana", last_date_text)
+
 # Table
 table = df[["plant_id", "date", "amount_ml", "notes"]].copy()
 table["date"] = table["date"].dt.strftime("%Y-%m-%d")
@@ -56,9 +69,16 @@ csv_text = "sep=;\n" + table.to_csv(index=False, sep=";")
 csv_data = csv_text.encode("utf-8-sig")
 
 chart_df = df[["date", "amount_ml"]].copy()
+chart_df = chart_df.dropna(subset=["date"])
+chart_df["date"] = chart_df["date"].dt.strftime("%Y-%m-%d")
 chart_df["amount_ml"] = chart_df["amount_ml"].fillna(0)
 chart_df = chart_df.groupby("date")["amount_ml"].sum().reset_index()
 chart_df = chart_df.sort_values("date")
+
+st.subheader("Laistīšanas dinamika")
+display_chart = chart_df.set_index("date")[["amount_ml"]].copy()
+display_chart.columns = [AMOUNT_LABEL]
+st.bar_chart(display_chart, y_label=AMOUNT_LABEL, x_label="Datums")
 
 chart_image = BytesIO()
 fig, ax = plt.subplots(figsize=(8, 4))
@@ -67,19 +87,20 @@ ax.set_title("Laistīšanas daudzums")
 ax.set_xlabel("Datums")
 ax.set_ylabel(AMOUNT_LABEL)
 ax.grid(True, axis="y")
-fig.autofmt_xdate()
+ax.tick_params(axis="x", labelrotation=35)
 fig.tight_layout()
 fig.savefig(chart_image, format="png", dpi=160)
 plt.close(fig)
 chart_image.seek(0)
 
-c1, c2 = st.columns(2)
-c1.download_button(
+st.subheader("Eksports")
+e1, e2 = st.columns(2)
+e1.download_button(
     "Lejupielādēt CSV",
     data=csv_data,
     file_name="laistisana.csv",
     mime="text/csv")
-c2.download_button(
+e2.download_button(
     "Lejupielādēt diagrammu",
     data=chart_image.getvalue(),
     file_name="laistisana_diagramma.png",

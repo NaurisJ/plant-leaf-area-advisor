@@ -7,6 +7,8 @@ from helpers import load_measurements, open_conn
 from measure_leaf_area import ensure_plant, list_plants, list_species
 
 st.title("Augi")
+st.caption(
+    "Pārvaldiet sistēmā reģistrētos augus, to sugas un saistītos mērījumus.")
 
 conn = open_conn()
 plants = list_plants(conn)
@@ -24,6 +26,7 @@ for s in species:
 
 # Existing plant table
 if plants:
+    st.subheader("Augu saraksts")
     rows = []
     for plant in plants:
         plant_id = plant["plant_id"]
@@ -50,7 +53,7 @@ if plants:
     csv_data = csv_text.encode("utf-8-sig")
 
     st.download_button(
-        "Lejupielādēt CSV",
+        "Lejupielādēt augu sarakstu",
         data=csv_data,
         file_name="augi.csv",
         mime="text/csv")

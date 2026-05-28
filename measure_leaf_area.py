@@ -34,25 +34,16 @@ IMAGE_EXT = {".jpg", ".jpeg", ".png", ".JPG", ".JPEG", ".PNG"}
 # Metadata
 
 def parse_meta(filename):
-    # Parse plant_id, date and view from a filename.
-    # Used as auto-fill suggestions in the UI - the user always confirms
-    # the metadata before saving.
+    # Parse only the date from a filename.
     name = Path(filename).stem
-
-    # Find plant_id - try strict spelling first, then common typos
-    m = re.search(r"[Pp]lant_?(\d+)", name)
-    if m:
-        plant_id = f"Plant{m.group(1)}"
-    else:
-        plant_id = "Unknown"
 
     # Find date in DDMMYYYY format
     date = None
-    m2 = re.search(r"(\d{2})(\d{2})(\d{4})", name)
-    if m2:
-        day = m2.group(1)
-        month = m2.group(2)
-        year = m2.group(3)
+    match = re.search(r"(\d{2})(\d{2})(\d{4})", name)
+    if match:
+        day = match.group(1)
+        month = match.group(2)
+        year = match.group(3)
         try:
             candidate = datetime(int(year), int(month), int(day))
             today = datetime.now()
@@ -62,14 +53,7 @@ def parse_meta(filename):
         except ValueError:
             date = None
 
-    # Find view
-    m3 = re.search(r"_(Top|Front|Side)_?", name, re.IGNORECASE)
-    if m3:
-        view = m3.group(1).lower()
-    else:
-        view = "unknown"
-
-    return {"plant_id": plant_id, "date": date, "view": view}
+    return {"date": date}
 
 
 # Measurement
@@ -155,9 +139,9 @@ def measure_image(model, img_path, debug=False):
         date = None
     result = {
         "filename": Path(img_path).name,
-        "plant_id": meta["plant_id"],
+        "plant_id": None,
         "date": date,
-        "view": meta["view"],
+        "view": "unknown",
         "leaf_area_fraction": leaf_area_fraction,
         "leaf_area_px": leaf_px,
         "image_area_px": total_px,
@@ -462,7 +446,7 @@ if __name__ == "__main__":
             "  "
             + image_name.ljust(50)
             + " "
-            + result["plant_id"].ljust(10)
+            + (result["plant_id"] or "Unknown").ljust(10)
             + " "
             + date_text.ljust(12)
             + " "

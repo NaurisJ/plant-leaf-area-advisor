@@ -6,6 +6,7 @@ from advisor import advise
 from helpers import get_plant_ids, load_measurements, watering_for
 
 st.title("Sākumlapa")
+st.caption("Kopsavilkums par saglabātajiem mērījumiem un augu stāvokli.")
 
 df = load_measurements()
 plants = get_plant_ids()
@@ -63,18 +64,30 @@ if warnings:
 else:
     st.success("Visi augi šobrīd ir stabilā stāvoklī.")
 
-st.subheader("Lapotnes laukums laika gaitā")
-top_df = df[
-    (df["view"] == "top")
-    & df["plant_id"].notna()
-    & (df["plant_id"] != "Unknown")
-]
-top_df = top_df.dropna(subset=["date"])
+left, right = st.columns([2, 1])
 
-if top_df.empty:
-    st.info("Nav 'top' skata mērījumu, ko parādīt.")
-else:
-    chart_df = top_df.pivot_table(
-        index="date", columns="plant_id", values="leaf_area_pct"
-    ).sort_index()
-    st.line_chart(chart_df, y_label="Lapotne (%)", x_label="Datums")
+with left:
+    st.subheader("Lapotnes laukums laika gaitā")
+    top_df = df[
+        (df["view"] == "top")
+        & df["plant_id"].notna()
+        & (df["plant_id"] != "Unknown")
+    ]
+    top_df = top_df.dropna(subset=["date"])
+
+    if top_df.empty:
+        st.info("Nav 'top' skata mērījumu, ko parādīt.")
+    else:
+        chart_df = top_df.pivot_table(
+            index="date", columns="plant_id", values="leaf_area_pct"
+        ).sort_index()
+        st.line_chart(chart_df, y_label="Lapotne (%)", x_label="Datums")
+
+with right:
+    st.subheader("Pēdējie mērījumi")
+    recent = df.dropna(subset=["date"]).sort_values("date").tail(6).copy()
+    recent = recent[["plant_id", "date", "view", "leaf_area_pct"]]
+    recent["date"] = recent["date"].dt.strftime("%Y-%m-%d")
+    recent["leaf_area_pct"] = recent["leaf_area_pct"].round(2)
+    recent.columns = ["Augs", "Datums", "Skats", "Lapotne %"]
+    st.dataframe(recent, use_container_width=True, hide_index=True)

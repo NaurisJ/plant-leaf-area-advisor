@@ -163,7 +163,7 @@ if use_calibration:
             f"Aptuvenais lapotnes projekcijas laukums: "
             f"{canopy_area_cm2:.1f} cm²")
 
-# Meta information - try to get from file name
+# Meta information - try to get the date from file name
 parsed = parse_meta(uploaded.name)
 plants = get_plant_ids()
 
@@ -173,23 +173,15 @@ st.subheader("Metainformācija")
 plant_choices = plants + [NEW_PLANT_OPTION]
 
 # Default - if file name contains a name in use, choose that
-if parsed["plant_id"] in plants:
-    selected_plant_index = plants.index(parsed["plant_id"])
-else:
-    # Else choose "+ Jauns augs..."
-    selected_plant_index = len(plant_choices) - 1
+selected_plant_index = len(plant_choices) - 1
 
 plant_choice = st.selectbox("Augs", plant_choices, index=selected_plant_index)
 
 # IF user chooses "+ Jauns augs...", show a new field
 new_plant_id = ""
 if plant_choice == NEW_PLANT_OPTION:
-    if parsed["plant_id"] != "Unknown":
-        default_new = parsed["plant_id"]
-    else:
-        default_new = ""
     new_plant_id = st.text_input(
-        "Jaunā auga identifikators", value=default_new,
+        "Jaunā auga identifikators", value="",
         placeholder="piem. Plant9")
 
 with st.form("save_form"):
@@ -203,13 +195,9 @@ with st.form("save_form"):
     meas_date = c1.date_input("Datums", value=default_date,
                               max_value=date.today())
 
-    # Default view - from file name or first
-    view_opts = ["top", "front", "side"]
-    if parsed["view"] in view_opts:
-        view_idx = view_opts.index(parsed["view"])
-    else:
-        view_idx = 0
-    view = c2.selectbox("Skats", view_opts, index=view_idx)
+    # View is selected manually.
+    view_opts = ["top", "front"]
+    view = c2.selectbox("Skats", view_opts, index=0)
 
     notes = st.text_input("Piezīmes", placeholder="neobligāti")
     submitted = st.form_submit_button("Saglabāt", type="primary")

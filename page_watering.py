@@ -4,6 +4,7 @@ from datetime import date
 from io import BytesIO
 
 import matplotlib.pyplot as plt
+import pandas as pd
 import streamlit as st
 
 from helpers import get_plant_ids, load_watering, open_conn
@@ -106,34 +107,136 @@ e2.download_button(
     file_name="laistisana_diagramma.png",
     mime="image/png")
 
-# Delete by ID
-st.subheader("Dzēst ierakstu")
+# Edit or delete entries
+st.subheader("Laistīšanas ierakstu pārvaldība")
+st.caption(
+    "Labojiet ierakstus tieši tabulā. Atzīmējiet 'Dzēst', ja rinda "
+    "jāizņem, un pēc tam saglabājiet izmaiņas.")
 
-# Get ready label for each entry: "Plant1 / 2026-04-15 / 200 ml"
-ids = []
-labels = {}
+rows = []
 for _, row in df.iterrows():
-    rid = int(row["id"])
-    date_str = row["date"].strftime("%Y-%m-%d")
-
-    if row["amount_ml"]:
-        ml = int(row["amount_ml"])
+    if pd.notna(row["date"]):
+        date_value = row["date"].date()
     else:
-        ml = 0
+        date_value = date.today()
 
-    ids.append(rid)
-    labels[rid] = f"{row['plant_id']} / {date_str} / {ml} ml"
+    plant_value = row["plant_id"]
+    if pd.isna(plant_value):
+        plant_value = plants[0]
+    else:
+        plant_value = str(plant_value)
 
-def show_record(i):
-    return labels[i]
+    amount_value = row["amount_ml"]
+    if pd.isna(amount_value):
+        amount_value = 0.0
+    else:
+        amount_value = float(amount_value)
 
-chosen = st.selectbox(
-    "Izvēlieties ierakstu", ids, format_func=show_record)
+    notes_value = row["notes"]
+    if pd.isna(notes_value):
+        notes_value = ""
+    else:
+        notes_value = str(notes_value)
 
-if st.button("Dzēst"):
-    conn = open_conn()
-    conn.execute("DELETE FROM watering_events WHERE id=?", (int(chosen),))
-    conn.commit()
-    conn.close()
-    st.warning("Dzēsts.")
-    st.rerun()
+    rows.append({
+        "Dzēst": False,
+        "ID": int(row["id"]),
+        "Augs": plant_value,
+        "Datums": date_value,
+        AMOUNT_LABEL: amount_value,
+        "Piezīmes": notes_value,
+    })
+
+watering_table = pd.DataFrame(rows)
+
+search_text = st.text_input(
+    "Meklēt laistīšanas ierakstos",
+    placeholder="Augs, datums vai piezīmes")
+
+visible_watering = watering_table.copy()
+search_text = search_text.strip().lower()
+if search_text:
+    search_values = (
+        visible_watering["Augs"].astype(str) + " " +
+        visible_watering["Datums"].astype(str) + " " +
+        visible_watering["Piezīmes"].astype(str))
+    visible_watering = visible_watering[
+        search_values.str.lower().str.contains(search_text, na=False)]
+
+if visible_watering.empty:
+    st.info("Pēc meklēšanas nav atrasts neviens laistīšanas ieraksts.")
+else:
+    st.caption(
+        f"Rādīti {len(visible_watering)} no "
+        f"{len(watering_table)} laistīšanas ierakstiem.")
+
+    edited_watering = st.data_editor(
+        visible_watering,
+        use_container_width=True,
+        hide_index=True,
+        height=360,
+        disabled=["ID"],
+        column_config={
+            "Dzēst": st.column_config.CheckboxColumn("Dzēst"),
+            "Augs": st.column_config.SelectboxColumn(
+                "Augs", options=plants),
+            "Datums": st.column_config.DateColumn(
+                "Datums", format="YYYY-MM-DD"),
+            AMOUNT_LABEL: st.column_config.NumberColumn(
+                AMOUNT_LABEL, min_value=0.0, step=50.0,
+                format="%.0f"),
+            "Piezīmes": st.column_config.TextColumn("Piezīmes"),
+        },
+        key="watering_editor")
+
+    if st.button("Saglabāt laistīšanas izmaiņas", type="primary"):
+        conn = open_conn()
+        delete_ids = []
+
+        for _, row in edited_watering.iterrows():
+            watering_id = int(row["ID"])
+
+            if row["Dzēst"]:
+                delete_ids.append(watering_id)
+            else:
+                plant_value = row["Augs"]
+                if pd.isna(plant_value):
+                    plant_value = plants[0]
+                else:
+                    plant_value = str(plant_value)
+
+                date_value = pd.to_datetime(row["Datums"], errors="coerce")
+                if pd.notna(date_value):
+                    final_date = date_value.date().isoformat()
+                else:
+                    final_date = date.today().isoformat()
+
+                amount_value = row[AMOUNT_LABEL]
+                if pd.notna(amount_value):
+                    final_amount = float(amount_value)
+                else:
+                    final_amount = 0.0
+
+                notes_value = row["Piezīmes"]
+                if pd.isna(notes_value):
+                    notes_value = None
+                else:
+                    notes_value = str(notes_value).strip() or None
+
+                conn.execute(
+                    "UPDATE watering_events "
+                    "SET plant_id=?, date=?, amount_ml=?, notes=? "
+                    "WHERE id=?",
+                    (plant_value, final_date, final_amount,
+                     notes_value, watering_id))
+
+        if delete_ids:
+            placeholders = ",".join(["?"] * len(delete_ids))
+            conn.execute(
+                f"DELETE FROM watering_events WHERE id IN ({placeholders})",
+                delete_ids)
+
+        conn.commit()
+        conn.close()
+        st.success("Laistīšanas izmaiņas saglabātas.")
+        st.rerun()
